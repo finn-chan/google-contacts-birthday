@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timedelta
+
 import pytz
 from dotenv import load_dotenv
 from google.auth.transport.requests import Request
@@ -14,6 +15,7 @@ load_dotenv()
 
 # 定义 OAuth2.0 范围
 SCOPES = ['https://www.googleapis.com/auth/contacts.readonly']
+
 
 def get_credentials():
     """
@@ -44,15 +46,17 @@ def get_credentials():
             }, SCOPES)
             creds = flow.run_local_server(port=8080)
         if os.getenv('SAVE_TOKEN', 'true').lower() in ['true', '1', 'yes']:
-            with open('token.json', 'w') as token:
+            with open('../token.json', 'w') as token:
                 token.write(creds.to_json())
     return creds
+
 
 def has_birthday_or_event(contact):
     """
     检查联系人是否有生日或事件
     """
     return ('birthdays' in contact and contact['birthdays']) or ('events' in contact and contact['events'])
+
 
 def get_connections(service):
     """
@@ -64,6 +68,7 @@ def get_connections(service):
         personFields='names,birthdays,events'
     ).execute()
     return [conn for conn in results.get('connections', []) if has_birthday_or_event(conn)]
+
 
 def add_gregorian_birthday_event(name, birth_date, year, calendar, timezone, birth_year):
     """
@@ -98,6 +103,7 @@ def add_gregorian_birthday_event(name, birth_date, year, calendar, timezone, bir
     event.add_component(alarm)
 
     calendar.add_component(event)
+
 
 def add_lunar_birthday_event(name, lunar_date, year, calendar, timezone, birth_year):
     """
@@ -138,6 +144,7 @@ def add_lunar_birthday_event(name, lunar_date, year, calendar, timezone, birth_y
 
     calendar.add_component(event)
 
+
 def add_anniversary_event(name, event_date, year, calendar, timezone, anniversary_year):
     """
     添加周年纪念日事件到日历
@@ -175,6 +182,7 @@ def add_anniversary_event(name, event_date, year, calendar, timezone, anniversar
     event.add_component(alarm)
 
     calendar.add_component(event)
+
 
 def create_calendar(data, current_year, years_to_create, timezone):
     """
@@ -216,12 +224,14 @@ def create_calendar(data, current_year, years_to_create, timezone):
 
     return cal
 
+
 def save_calendar(calendar, file_path):
     """
     保存日历到 ICS 文件
     """
     with open(file_path, 'wb') as f:
         f.write(calendar.to_ical())
+
 
 def main():
     """
@@ -238,7 +248,8 @@ def main():
     calendar = create_calendar(connections, current_year, years_to_create, timezone)
 
     # 保存日历到 ICS 文件
-    save_calendar(calendar, 'birthdays.ics')
+    save_calendar(calendar, '../birthdays.ics')
+
 
 if __name__ == '__main__':
     main()

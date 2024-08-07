@@ -1,6 +1,5 @@
 .env
 .idea/
 birthdays.ics
-credentials.json
-holidays.ics
+local/
 token.json

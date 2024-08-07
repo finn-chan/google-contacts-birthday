@@ -1,6 +1,8 @@
 name: Update Birthday Calendar
 
 on:
+  schedule:
+    - cron: '0 21 * * *'
   push:
     branches:
       - main
@@ -23,7 +25,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Generate birthdays.ics
+    - name: Update calendar
       env:
         GOOGLE_API_TOKEN: ${{ secrets.GOOGLE_API_TOKEN }}
         GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
@@ -33,7 +35,7 @@ jobs:
         GOOGLE_AUTH_URI: ${{ vars.GOOGLE_AUTH_URI }}
         GOOGLE_TOKEN_URI: ${{ vars.GOOGLE_TOKEN_URI }}
       run: |
-        python update_calendar.py
+        python ./scripts/update_calendar.py
 
     - name: Upload to Cloudflare Pages
       env:
@@ -43,4 +45,4 @@ jobs:
       run: |
         curl -X POST "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${CLOUDFLARE_PAGES_PROJECT_NAME}/deployments" \
           -H "Authorization: Bearer ${CLOUDFLARE_PAGES_API_TOKEN}" \
-          -F "file=@birthdays.ics"
+          -F "file=@data/birthdays.ics"
