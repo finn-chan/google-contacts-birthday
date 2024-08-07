@@ -1,2 +1,2 @@
-# google-contacts-birthday
-Generates a calendar of Google Contacts (Lunar) birthdays.
+# google-contacts-birthdays
+Generates a calendar of Google contacts (Lunar) birthdays.
