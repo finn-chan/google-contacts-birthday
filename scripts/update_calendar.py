@@ -248,7 +248,7 @@ def main():
     calendar = create_calendar(connections, current_year, years_to_create, timezone)
 
     # 保存日历到 ICS 文件
-    save_calendar(calendar, '../birthdays.ics')
+    save_calendar(calendar, './birthdays.ics')
 
     print('')
 
