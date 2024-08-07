@@ -45,4 +45,4 @@ jobs:
       run: |
         curl -X POST "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${CLOUDFLARE_PAGES_PROJECT_NAME}/deployments" \
           -H "Authorization: Bearer ${CLOUDFLARE_PAGES_API_TOKEN}" \
-          -F "file=@data/birthdays.ics"
+          -F "file=@birthdays.ics"

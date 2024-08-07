@@ -23,12 +23,12 @@ def get_credentials():
     """
     creds = None
     token_info = {
-        "refresh_token": os.getenv('GOOGLE_REFRESH_TOKEN'),
-        "token": os.getenv('GOOGLE_API_TOKEN'),
-        "token_uri": os.getenv('GOOGLE_TOKEN_URI'),
-        "client_id": os.getenv('GOOGLE_CLIENT_ID'),
-        "client_secret": os.getenv('GOOGLE_CLIENT_SECRET'),
-        "scopes": SCOPES
+        'refresh_token': os.getenv('GOOGLE_REFRESH_TOKEN'),
+        'token': os.getenv('GOOGLE_API_TOKEN'),
+        'token_uri': os.getenv('GOOGLE_TOKEN_URI'),
+        'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+        'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
+        'scopes': SCOPES
     }
     creds = Credentials.from_authorized_user_info(token_info, SCOPES)
     if not creds or not creds.valid:
@@ -36,12 +36,12 @@ def get_credentials():
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_config({
-                "web": {
-                    "client_id": os.getenv('GOOGLE_CLIENT_ID'),
-                    "client_secret": os.getenv('GOOGLE_CLIENT_SECRET'),
-                    "auth_uri": os.getenv('GOOGLE_AUTH_URI'),
-                    "token_uri": os.getenv('GOOGLE_TOKEN_URI'),
-                    "auth_provider_x509_cert_url": os.getenv('GOOGLE_AUTH_PROVIDER_X509_CERT_URL')
+                'web': {
+                    'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+                    'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
+                    'auth_uri': os.getenv('GOOGLE_AUTH_URI'),
+                    'token_uri': os.getenv('GOOGLE_TOKEN_URI'),
+                    'auth_provider_x509_cert_url': os.getenv('GOOGLE_AUTH_PROVIDER_X509_CERT_URL')
                 }
             }, SCOPES)
             creds = flow.run_local_server(port=8080)
@@ -77,11 +77,11 @@ def add_gregorian_birthday_event(name, birth_date, year, calendar, timezone, bir
     event = Event()
     age = year - birth_year if birth_year else None
     if birth_year:
-        summary = f"{name}的{age}岁生日🎂"
-        description = f"今天是{name}的{age}岁生日！"
+        summary = f'{name}的{age}岁生日🎂'
+        description = f'今天是{name}的{age}岁生日！'
     else:
-        summary = f"{name}的生日🎂"
-        description = f"今天是{name}的生日！"
+        summary = f'{name}的生日🎂'
+        description = f'今天是{name}的生日！'
 
     event.add('summary', summary)
     event.add('description', description)
@@ -117,11 +117,11 @@ def add_lunar_birthday_event(name, lunar_date, year, calendar, timezone, birth_y
     solar_date = datetime(solar.year, solar.month, solar.day)
 
     if lunar_year:
-        summary = f"{name}的{age}岁农历生日🎂"
-        description = f"今天是{name}的{age}岁农历生日！"
+        summary = f'{name}的{age}岁农历生日🎂'
+        description = f'今天是{name}的{age}岁农历生日！'
     else:
-        summary = f"{name}的农历生日🎂"
-        description = f"今天是{name}的农历生日！"
+        summary = f'{name}的农历生日🎂'
+        description = f'今天是{name}的农历生日！'
 
     event.add('summary', summary)
     event.add('description', description)
@@ -156,11 +156,11 @@ def add_anniversary_event(name, event_date, year, calendar, timezone, anniversar
     cleaned_name = name.strip()
 
     if anniversary_year:
-        summary = f"{cleaned_name}{age}周年纪念日"
-        description = f"今天是{cleaned_name}{age}周年纪念日！"
+        summary = f'{cleaned_name}{age}周年纪念日'
+        description = f'今天是{cleaned_name}{age}周年纪念日！'
     else:
-        summary = f"{cleaned_name}周年纪念日"
-        description = f"今天是{cleaned_name}周年纪念日！"
+        summary = f'{cleaned_name}周年纪念日'
+        description = f'今天是{cleaned_name}周年纪念日！'
 
     event.add('summary', summary)
     event.add('description', description)
@@ -249,6 +249,8 @@ def main():
 
     # 保存日历到 ICS 文件
     save_calendar(calendar, '../birthdays.ics')
+
+    print('')
 
 
 if __name__ == '__main__':
