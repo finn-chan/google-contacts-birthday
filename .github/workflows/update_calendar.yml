@@ -1,4 +1,4 @@
-name: Update Birthday Calendar
+name: Update Calendar
 
 on:
   schedule:
