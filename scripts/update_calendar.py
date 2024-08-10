@@ -1,7 +1,6 @@
 import os
 from datetime import datetime, timedelta
 
-import pytz
 from dotenv import load_dotenv, set_key
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -131,60 +130,80 @@ def add_gregorian_birthday_event(name, birth_date, year, calendar, birth_year):
     calendar.add_component(event)
 
 
-def add_lunar_birthday_event(name, lunar_date, year, calendar, birth_year):
+def add_lunar_birthday_event(name, lunar_date, year, calendar):
     """
     添加农历生日事件到日历
     :param name: 联系人名称
-    :param lunar_date: 农历日期字典，包含年份、月份、日期
+    :param lunar_date: 农历日期字典，包含月份、日期
     :param year: 要添加事件的年份
     :param calendar: 日历对象
-    :param birth_year: 出生年份
     """
     event = Event()
-    lunar_year = lunar_date.get('year', birth_year)
-    age = year - lunar_year if lunar_year else None
 
-    # 检查并处理农历日期是否有效
-    valid_lunar_date = False
-    while not valid_lunar_date:
-        try:
-            lunar = Lunar(year, lunar_date['month'], lunar_date['day'])
-            solar = Converter.Lunar2Solar(lunar)
-            valid_lunar_date = True
-        except DateNotExist:
-            # 如果日期不存在，将农历日期提前一天
-            lunar_date['day'] -= 1
-            if lunar_date['day'] < 1:
-                raise ValueError(f"Lunar date adjustment failed for {name}. Please check the data.")
+    # 默认将 solar_date 初始化为 None
+    solar_date = None
 
-    solar_date = datetime(solar.year, solar.month, solar.day)
+    if 'year' in lunar_date:
+        # 有年份信息的农历日期，转换为公历日期并计算年龄
+        while True:
+            try:
+                lunar = Lunar(year, lunar_date['month'], lunar_date['day'])
+                solar = Converter.Lunar2Solar(lunar)
+                break
+            except DateNotExist:
+                # 如果日期不存在，将农历日期提前一天
+                lunar_date['day'] -= 1
+                if lunar_date['day'] < 1:
+                    raise ValueError(f'Lunar date adjustment failed for {name}. Please check the data.')
 
-    if lunar_year:
+        solar_date = datetime(solar.year, solar.month, solar.day)
+        # 这里原本是 age = solar.year- lunar_date['year']
+        age = year - lunar_date['year']
+
         summary = f'{name}的{age}岁农历生日🎂'
         description = f'今天是{name}的{age}岁农历生日！'
+
     else:
+        # 没有年份信息的农历日期，找到相应年份的农历日期并计算
+        while True:
+            try:
+                lunar = Lunar(year, lunar_date['month'], lunar_date['day'])
+                solar = Converter.Lunar2Solar(lunar)
+                break
+            except DateNotExist:
+                # 如果日期不存在，将农历日期提前一天
+                lunar_date['day'] -= 1
+                if lunar_date['day'] < 1:
+                    raise ValueError(f'Lunar date adjustment failed for {name}. Please check the data.')
+
+        solar_date = datetime(solar.year, solar.month, solar.day)
         summary = f'{name}的农历生日🎂'
         description = f'今天是{name}的农历生日！'
 
-    event.add('summary', summary)
-    event.add('description', description)
+    # 确保 solar_date 已经被正确处理
+    if solar_date:
+        event.add('summary', summary)
+        event.add('description', description)
 
-    # 设置事件为全天事件，不指定时区
-    event.add('dtstart', solar_date.date())
-    event.add('dtend', (solar_date + timedelta(days=1)).date())
-    event.add('dtstamp', datetime.now())
+        # 设置事件为全天事件，不指定时区
+        event.add('dtstart', solar_date.date())
+        event.add('dtend', (solar_date + timedelta(days=1)).date())
+        dtstamp = datetime(solar_date.year, solar_date.month, solar_date.day)
+        event.add('dtstamp', dtstamp)
 
-    event['uid'] = f'{name}-{year}-{solar_date.month:02d}-{solar_date.day:02d}@finn'
+        event['uid'] = f'{name}-{solar_date.year}-{solar_date.month:02d}-{solar_date.day:02d}@finn'
 
-    # 添加提醒时间为当天上午9:00
-    alarm = Alarm()
-    alarm.add('action', 'DISPLAY')
-    alarm.add('description', 'Reminder')
-    alarm.add('trigger', timedelta(hours=+9))
-    event.add_component(alarm)
+        # 添加提醒时间为当天上午9:00
+        alarm = Alarm()
+        alarm.add('action', 'DISPLAY')
+        alarm.add('description', 'Reminder')
+        alarm.add('trigger', timedelta(hours=+9))
+        event.add_component(alarm)
 
-    # 将事件添加到日历中
-    calendar.add_component(event)
+        # 将事件添加到日历中
+        calendar.add_component(event)
+    else:
+        raise ValueError(f'Failed to calculate solar date for {name}\'s lunar birthday.')
 
 
 def add_anniversary_event(name, event_date, year, calendar, anniversary_year):
@@ -230,13 +249,12 @@ def add_anniversary_event(name, event_date, year, calendar, anniversary_year):
     calendar.add_component(event)
 
 
-def create_calendar(data, current_year, years_to_create, timezone):
+def create_calendar(data, current_year, years_to_create):
     """
     创建包含生日和事件的日历
     :param data: 联系人数据列表
     :param current_year: 当前年份
     :param years_to_create: 要生成的年份数量
-    :param timezone: 时区对象
     :return: 日历对象，包含所有生日和事件
     """
     cal = Calendar()
@@ -246,7 +264,6 @@ def create_calendar(data, current_year, years_to_create, timezone):
 
     for person in data:
         name = person['names'][0]['displayName']
-        birth_year = None
 
         if 'birthdays' in person:
             birthday_info = person['birthdays'][0]['date']
@@ -265,7 +282,7 @@ def create_calendar(data, current_year, years_to_create, timezone):
                 if '农历生日' in event_description:
                     lunar_date = event['date']
                     for year in range(current_year, current_year + years_to_create):
-                        add_lunar_birthday_event(name, lunar_date, year, cal, birth_year)
+                        add_lunar_birthday_event(name, lunar_date, year, cal)
                 elif '周年纪念日' in event_description:
                     event_name = event_description.split('#')[0]
                     event_date = event['date']
@@ -296,8 +313,7 @@ def main():
 
     current_year = datetime.now().year
     years_to_create = 5
-    timezone = pytz.timezone('Asia/Shanghai')
-    calendar = create_calendar(connections, current_year, years_to_create, timezone)
+    calendar = create_calendar(connections, current_year, years_to_create)
 
     save_calendar(calendar, './birthdays.ics')
 
