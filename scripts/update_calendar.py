@@ -6,7 +6,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from icalendar import Alarm, Calendar, Event
+from icalendar import Calendar, Event
 from lunarcalendar import Converter, DateNotExist, Lunar
 
 # 加载环境变量
@@ -68,6 +68,16 @@ def get_credentials():
     return creds
 
 
+def get_preferred_nickname(name, nickname):
+    """
+    优先选择昵称
+    :param name: 联系人名称
+    :param nickname 联系人昵称
+    :return:
+    """
+    return nickname if nickname else name
+
+
 def has_birthday_or_event(contact):
     """
     检查联系人是否有生日或事件
@@ -86,54 +96,53 @@ def get_connections(service):
     results = service.people().connections().list(
         resourceName='people/me',
         pageSize=1000,
-        personFields='names,birthdays,events'
+        personFields='names,nicknames,birthdays,events'
     ).execute()
     return [conn for conn in results.get('connections', []) if has_birthday_or_event(conn)]
 
 
-def add_gregorian_birthday_event(name, birth_date, year, calendar, birth_year):
+def add_gregorian_birthday_event(name, nickname, birth_date, year, calendar, birth_year):
     """
     添加公历生日事件到日历
     :param name: 联系人名称
+    :param nickname 联系人昵称
     :param birth_date: 出生日期（datetime 对象）
     :param year: 要添加事件的年份
     :param calendar: 日历对象
     :param birth_year: 出生年份
     """
     event = Event()
+
     age = year - birth_year if birth_year else None
     if birth_year:
         summary = f'{name}的{age}岁生日🎂'
-        description = f'今天是{name}的{age}岁生日！'
+        description = f'今天是{get_preferred_nickname(name, nickname)}的{age}岁生日！'
     else:
         summary = f'{name}的生日🎂'
-        description = f'今天是{name}的生日！'
+        description = f'今天是{get_preferred_nickname(name, nickname)}的生日！'
 
+    now = datetime.now()
+
+    # 添加属性
+    event['uid'] = f'{name}-{year}-{birth_date.month:02d}-{birth_date.day:02d}-gregorian-birthday@finn'
     event.add('summary', summary)
-    event.add('description', description)
-
-    # 设置事件为全天事件，不指定时区
     event.add('dtstart', datetime(year, birth_date.month, birth_date.day).date())
     event.add('dtend', (datetime(year, birth_date.month, birth_date.day) + timedelta(days=1)).date())
-    event.add('dtstamp', datetime.now())
-
-    event['uid'] = f'{name}-{year}-{birth_date.month:02d}-{birth_date.day:02d}@finn'
-
-    # 添加提醒时间为当天上午9:00
-    alarm = Alarm()
-    alarm.add('action', 'DISPLAY')
-    alarm.add('description', 'Reminder')
-    alarm.add('trigger', timedelta(hours=+9))
-    event.add_component(alarm)
+    event.add('description', description)
+    event.add('status', 'CONFIRMED')
+    event.add('categories', 'BIRTHDAY')
+    event.add('dtstamp', now)
+    event.add('last-modified', now)
 
     # 将事件添加到日历中
     calendar.add_component(event)
 
 
-def add_lunar_birthday_event(name, lunar_date, year, calendar):
+def add_lunar_birthday_event(name, nickname, lunar_date, year, calendar):
     """
     添加农历生日事件到日历
     :param name: 联系人名称
+    :param nickname 联系人昵称
     :param lunar_date: 农历日期字典，包含月份、日期
     :param year: 要添加事件的年份
     :param calendar: 日历对象
@@ -161,7 +170,7 @@ def add_lunar_birthday_event(name, lunar_date, year, calendar):
         age = year - lunar_date['year']
 
         summary = f'{name}的{age}岁农历生日🎂'
-        description = f'今天是{name}的{age}岁农历生日！'
+        description = f'今天是{get_preferred_nickname(name, nickname)}的{age}岁农历生日！'
 
     else:
         # 没有年份信息的农历日期，找到相应年份的农历日期并计算
@@ -178,27 +187,22 @@ def add_lunar_birthday_event(name, lunar_date, year, calendar):
 
         solar_date = datetime(solar.year, solar.month, solar.day)
         summary = f'{name}的农历生日🎂'
-        description = f'今天是{name}的农历生日！'
+        description = f'今天是{get_preferred_nickname(name, nickname)}的农历生日！'
 
     # 确保 solar_date 已经被正确处理
     if solar_date:
-        event.add('summary', summary)
-        event.add('description', description)
+        now = datetime.now()
 
-        # 设置事件为全天事件，不指定时区
+        # 添加属性
+        event['uid'] = f'{name}-{solar_date.year}-{solar_date.month:02d}-{solar_date.day:02d}-lunar-birthday@finn'
+        event.add('summary', summary)
         event.add('dtstart', solar_date.date())
         event.add('dtend', (solar_date + timedelta(days=1)).date())
-        dtstamp = datetime(solar_date.year, solar_date.month, solar_date.day)
-        event.add('dtstamp', dtstamp)
-
-        event['uid'] = f'{name}-{solar_date.year}-{solar_date.month:02d}-{solar_date.day:02d}@finn'
-
-        # 添加提醒时间为当天上午9:00
-        alarm = Alarm()
-        alarm.add('action', 'DISPLAY')
-        alarm.add('description', 'Reminder')
-        alarm.add('trigger', timedelta(hours=+9))
-        event.add_component(alarm)
+        event.add('description', description)
+        event.add('status', 'CONFIRMED')
+        event.add('categories', 'BIRTHDAY')
+        event.add('dtstamp', now)
+        event.add('last-modified', now)
 
         # 将事件添加到日历中
         calendar.add_component(event)
@@ -219,31 +223,27 @@ def add_anniversary_event(name, event_date, year, calendar, anniversary_year):
     age = year - anniversary_year if anniversary_year else None
     anniv_date = datetime(year, event_date['month'], event_date['day'])
 
-    cleaned_name = name.strip()
+    event_name = name.strip()
 
     if anniversary_year:
-        summary = f'{cleaned_name}{age}周年纪念日'
-        description = f'今天是{cleaned_name}{age}周年纪念日！'
+        summary = f'{event_name}{age}周年纪念日'
+        description = f'今天是{event_name}{age}周年纪念日！'
     else:
-        summary = f'{cleaned_name}周年纪念日'
-        description = f'今天是{cleaned_name}周年纪念日！'
+        summary = f'{event_name}周年纪念日'
+        description = f'今天是{event_name}周年纪念日！'
 
+    now = datetime.now()
+
+    # 添加属性
+    event['uid'] = f'{event_name}-{year}-{event_date["month"]:02d}-{event_date["day"]:02d}-anniversary@finn'
     event.add('summary', summary)
-    event.add('description', description)
-
-    # 设置事件为全天事件，不指定时区
     event.add('dtstart', anniv_date.date())
     event.add('dtend', (anniv_date + timedelta(days=1)).date())
-    event.add('dtstamp', datetime.now())
-
-    event['uid'] = f'{cleaned_name}-{year}-{event_date["month"]:02d}-{event_date["day"]:02d}@finn'
-
-    # 添加提醒时间为当天上午9:00
-    alarm = Alarm()
-    alarm.add('action', 'DISPLAY')
-    alarm.add('description', 'Reminder')
-    alarm.add('trigger', timedelta(hours=+9))
-    event.add_component(alarm)
+    event.add('description', description)
+    event.add('status', 'CONFIRMED')
+    event.add('categories', 'ANNIVERSARY')
+    event.add('dtstamp', now)
+    event.add('last-modified', now)
 
     # 将事件添加到日历中
     calendar.add_component(event)
@@ -258,12 +258,17 @@ def create_calendar(data, current_year, years_to_create):
     :return: 日历对象，包含所有生日和事件
     """
     cal = Calendar()
-    cal.add('prodid', '-//Google Inc//Google Calendar 70.9054//EN')
+    cal.add('prodid', '-//Google Inc//Google Calendar 70.9054//ZH_CN')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', '生日快乐')
 
     for person in data:
         name = person['names'][0]['displayName']
+
+        if 'nicknames' in person:
+            nickname = person['nicknames'][0]['value']
+        else:
+            nickname = None
 
         if 'birthdays' in person:
             birthday_info = person['birthdays'][0]['date']
@@ -274,7 +279,7 @@ def create_calendar(data, current_year, years_to_create):
             )
             birth_year = birthday_info.get('year')
             for year in range(current_year, current_year + years_to_create):
-                add_gregorian_birthday_event(name, birth_date, year, cal, birth_year)
+                add_gregorian_birthday_event(name, nickname, birth_date, year, cal, birth_year)
 
         if 'events' in person:
             for event in person['events']:
@@ -282,7 +287,7 @@ def create_calendar(data, current_year, years_to_create):
                 if '农历生日' in event_description:
                     lunar_date = event['date']
                     for year in range(current_year, current_year + years_to_create):
-                        add_lunar_birthday_event(name, lunar_date, year, cal)
+                        add_lunar_birthday_event(name, nickname, lunar_date, year, cal)
                 elif '周年纪念日' in event_description:
                     event_name = event_description.split('#')[0]
                     event_date = event['date']
